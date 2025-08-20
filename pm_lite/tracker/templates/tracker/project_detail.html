@@ -1,0 +1,35 @@
+{% extends "tracker/base.html" %}
+
+{% block content %}
+    <h1 class="mb-3">{{ project.name }}</h1>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Project Details</h5>
+            <p><strong>Type:</strong> {{ project.get_project_type_display }}</p>
+            <p><strong>Status:</strong> {{ project.status }}</p>
+            <p><strong>Description:</strong> {{ project.description|linebreaksbr }}</p>
+            {% if project.tenant %}
+                <p><strong>Tenant:</strong> {{ project.tenant }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <h2 class="mb-3">Tasks</h2>
+    <div class="list-group">
+        {% for task in tasks %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ task.name }}</h5>
+                    <small>Due: {{ task.due_date|default:"N/A" }}</small>
+                </div>
+                <p class="mb-1">{{ task.description }}</p>
+                <small>Completed: {{ task.completed|yesno:"Yes,No" }}</small>
+            </div>
+        {% empty %}
+            <div class="list-group-item">
+                No tasks found for this project.
+            </div>
+        {% endfor %}
+    </div>
+    <a href="{% url 'tracker:project_list' %}" class="btn btn-primary mt-4">Back to Project List</a>
+{% endblock %}

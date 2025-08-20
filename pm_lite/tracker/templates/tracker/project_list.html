@@ -1,0 +1,21 @@
+{% extends "tracker/base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Projects</h1>
+    <div class="list-group">
+        {% for project in projects %}
+            <a href="{% url 'tracker:project_detail' project.id %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ project.name }}</h5>
+                    <span class="badge bg-secondary rounded-pill">{{ project.status }}</span>
+                </div>
+                <p class="mb-1">{{ project.description|truncatewords:20 }}</p>
+                <small>Type: {{ project.get_project_type_display }}</small>
+            </a>
+        {% empty %}
+            <div class="list-group-item">
+                <p class="mb-0">No projects found. You can create them in the <a href="/admin">admin panel</a>.</p>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
