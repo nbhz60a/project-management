@@ -11,6 +11,9 @@
             {% if project.tenant %}
                 <p><strong>Tenant:</strong> {{ project.tenant }}</p>
             {% endif %}
+            {% if project.completed_work %}
+                <p><strong>Completed Work:</strong> <a href="{{ project.completed_work.url }}" target="_blank">View PDF</a></p>
+            {% endif %}
         </div>
     </div>
 
@@ -32,4 +35,42 @@
         {% endfor %}
     </div>
     <a href="{% url 'tracker:project_list' %}" class="btn btn-primary mt-4">Back to Project List</a>
+
+    <h2 class="mb-3 mt-4">Reminders</h2>
+    <div class="list-group">
+        {% for reminder in reminders %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <p class="mb-1">{{ reminder.message }}</p>
+                    <small>Date: {{ reminder.date }}</small>
+                </div>
+            </div>
+        {% empty %}
+            <div class="list-group-item">
+                No reminders found for this project.
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Add Reminder</h5>
+            <form method="post">
+                {% csrf_token %}
+                {{ reminder_form.as_p }}
+                <button type="submit" name="add_reminder" class="btn btn-primary">Add Reminder</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Upload Completed Work</h5>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ completed_work_form.as_p }}
+                <button type="submit" name="upload_work" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
 {% endblock %}

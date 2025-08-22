@@ -36,6 +36,7 @@ class Project(models.Model):
     end_date = models.DateField(null=True, blank=True)
     tenant = models.ForeignKey(Tenant, on_delete=models.SET_NULL, null=True, blank=True)
     vendors = models.ManyToManyField(Vendor, blank=True)
+    completed_work = models.FileField(upload_to='completed_work/', blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -99,3 +100,12 @@ class Document(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Reminder(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='reminders')
+    message = models.CharField(max_length=255)
+    date = models.DateField()
+
+    def __str__(self):
+        return f"Reminder for {self.project.name} on {self.date}"

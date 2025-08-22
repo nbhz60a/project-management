@@ -1,0 +1,20 @@
+{% extends "tracker/base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Reminders</h1>
+    <div class="list-group">
+        {% for reminder in reminders %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ reminder.project.name }}</h5>
+                    <small>Date: {{ reminder.date }}</small>
+                </div>
+                <p class="mb-1">{{ reminder.message }}</p>
+            </div>
+        {% empty %}
+            <div class="list-group-item">
+                <p class="mb-0">No reminders found.</p>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
