@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRE Asset Manager Pro – Advanced Property Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .card-hover { transition: transform .3s cubic-bezier(.4, 0, .2, 1), box-shadow .3s; }
+        .card-hover:hover { transform: translateY(-6px); box-shadow: 0 12px 30px rgba(0,0,0,.15); }
+        .status-overdue { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b; }
+        .status-due { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+        .status-progress { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8; }
+        .status-completed { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534; }
+        .status-upcoming { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #312e81; }
+        .priority-critical { background: linear-gradient(135deg, #fca5a5, #f87171); }
+        .priority-high { background: linear-gradient(135deg, #fdba74, #fb923c); }
+        .priority-medium { background: linear-gradient(135deg, #fde047, #facc15); }
+        .priority-low { background: linear-gradient(135deg, #86efac, #4ade80); }
+        .animate-fade-in { animation: fadeIn .5s ease-in; }
+        .animate-slide-up { animation: slideUp .3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .mobile-menu { transform: translateX(-100%); transition: transform .3s ease; }
+        .mobile-menu.open { transform: translateX(0); }
+        @media (max-width: 768px) { .desktop-only { display: none !important; } }
+        @media (min-width: 769px) { .mobile-only { display: none !important; } }
+        .custom-task-input { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #a5b4fc; border-radius: 20px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #4f46e5; }
+    </style>
+</head>
+<body class="bg-gray-50 transition-colors duration-300 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+        // ==================== UTILITY COMPONENTS ====================
+        const Icon = ({ name, className = "", ...props }) => {
+            return <i data-lucide={name} className={`h-5 w-5 ${className}`} {...props}></i>;
+        };
+        
+        const Modal = ({ children, isOpen, onClose, size = "md" }) => {
+            if (!isOpen) return null;
+            const sizeClasses = {
+                sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl",
+                xl: "max-w-4xl", full: "max-w-7xl"
+            };
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col animate-slide-up`} onClick={e => e.stopPropagation()}>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+            if (!isOpen) return null;
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} size="sm">
+                    <div className="p-6">
+                        <div className="text-center">
+                            <Icon name="alert-triangle" className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{message}</p>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button onClick={onConfirm} type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
+                            Confirm
+                        </button>
+                        <button onClick={onClose} type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 sm:mt-0 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </Modal>
+            );
+        };
+
+        const Card = ({ children, className = '', hover = true, ...props }) => (
+            <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 ${hover ? 'card-hover' : ''} ${className}`} {...props}>
+                {children}
+            </div>
+        );
+
+        const StatusBadge = ({ status, size = "sm" }) => {
+            const sizeClasses = size === "lg" ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs";
+            return (
+                <span className={`inline-flex items-center rounded-full font-medium status-${status.type} ${sizeClasses}`}>
+                    <Icon name={status.icon} className={`${size === "lg" ? "h-4 w-4" : "h-3 w-3"} mr-1.5`} />
+                    {status.text}
+                </span>
+            );
+        };
+        
+        const PriorityBadge = ({ priority, size = "sm" }) => {
+            const sizeClasses = size === "lg" ? "px-4 py-2 text-sm" : "px-2 py-1 text-xs";
+            return (
+                <span className={`inline-flex items-center rounded-full font-semibold text-white priority-${priority} ${sizeClasses}`}>
+                    {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                </span>
+            );
+        };
+
+        // ==================== DATA & CONFIGURATION ====================
+        const TASK_HIERARCHY = {
+            'Systems Maintenance': {
+                'HVAC Systems': ["Refrigerant Level Check", "Thermostat Calibration", "Filter Replacement", "Airflow Inspection", "Condenser Coil Cleaning", "Blower Motor Test", "Ductwork Inspection", "Compressor Function Test", "Ventilation Check", "Temperature Differential Test"],
+                'Electrical Systems': ["Electrical Panel Inspection", "Lighting Fixture Repair", "Outlet Voltage Test", "Circuit Breaker Test", "Emergency Lighting Inspection"],
+                'Plumbing Systems': ["Leak Detection", "Drain Cleaning", "Water Pressure Test", "Pipe Insulation Check", "Water Heater Flush"],
+                'Fire Safety Systems': ["Fire Extinguisher Inspection", "Alarm System Test", "Sprinkler System Inspection", "Evacuation Plan Review", "Smoke Detector Test"],
+                'Security Systems': ["Camera System Test", "Access Control Audit", "Alarm System Review", "Security Protocol Update", "Motion Sensor Test"]
+            },
+            'Property Upkeep': {
+                'Building Exterior': ["Roof Inspection", "Gutter Cleaning", "Façade Repair", "Exterior Lighting Check", "Signage Inspection"],
+                'Interior Maintenance': ["Ceiling Tile Replacement", "Door Hardware Check", "Paint Touch-Up", "Flooring Inspection", "Wall Damage Repair"],
+                'Grounds & Landscaping': ["Lawn Mowing", "Tree Trimming", "Irrigation System Check", "Debris Removal", "Weed Control"],
+                'Loading Dock & Warehouse': ["Dock Leveler Inspection", "Safety Signage Update", "Floor Cleaning", "Loading Equipment Test", "Warehouse Lighting Check"],
+                'Cleaning & Janitorial': ["Deep Cleaning", "Trash Removal", "Restroom Supplies Check", "Window Cleaning", "Disinfection Routine"],
+                'Pest Control': ["Pest Inspection", "Trap Placement", "Entry Point Sealing", "Extermination Scheduling", "Rodent Bait Station Check"]
+            },
+            'Administrative': {
+                'Financial & Administrative': ["Budget Review", "Vendor Invoice Check", "Lease Compliance Audit", "Tenant Record Update", "Expense Report Review"]
+            }
+        };
+        
+        const INITIAL_PROPERTIES = [
+            { id: 1, name: 'Gateway Industrial Complex', address: '1500 Industrial Drive, Chicago, IL 60632', tenant: 'Global Logistics Solutions', type: 'Industrial', sqft: 125000, yearBuilt: 1998, leaseExpiry: '2026-12-31', insuranceExpiry: '2025-03-15', monthlyRent: 32500, status: 'occupied' },
+            { id: 2, name: 'Metro Distribution Center', address: '875 Commerce Boulevard, Schaumburg, IL 60173', tenant: 'Midwest Freight Corporation', type: 'Distribution', sqft: 200000, yearBuilt: 2005, leaseExpiry: '2025-06-30', insuranceExpiry: '2025-01-20', monthlyRent: 45000, status: 'occupied' },
+            { id: 3, name: 'Northside Warehouse Park', address: '2200 Freight Way, Aurora, IL 60504', tenant: 'Advanced Manufacturing Inc', type: 'Warehouse', sqft: 175000, yearBuilt: 2010, leaseExpiry: '2027-03-31', insuranceExpiry: '2024-11-30', monthlyRent: 38750, status: 'occupied' }
+        ];
+
+        const USERS = [
+            { id: 1, name: 'Sarah Chen', role: 'Manager', email: 'sarah.chen@creplatform.com', avatar: 'SC' },
+            { id: 2, name: 'Mike Rodriguez', role: 'Technician', email: 'mike.rodriguez@creplatform.com', avatar: 'MR' },
+            { id: 3, name: 'Lisa Johnson', role: 'Manager', email: 'lisa.johnson@creplatform.com', avatar: 'LJ' },
+            { id: 4, name: 'David Kim', role: 'Technician', email: 'david.kim@creplatform.com', avatar: 'DK' }
+        ];
+
+        // ==================== UTILITY FUNCTIONS ====================
+        const getTaskStatus = (task) => {
+            if (task.completedDate) return { type: 'completed', text: 'Completed', icon: 'check-circle' };
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(task.dueDate); dueDate.setHours(12, 0, 0, 0);
+            const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) return { type: 'overdue', text: 'Overdue', icon: 'alert-triangle' };
+            if (diffDays <= 7) return { type: 'due', text: 'Due Soon', icon: 'clock' };
+            if (task.status === 'in_progress') return { type: 'progress', text: 'In Progress', icon: 'play-circle' };
+            return { type: 'upcoming', text: 'Upcoming', icon: 'calendar' };
+        };
+
+        const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num);
+
+        const generateInitialTasks = () => {
+            const tasks = []; let taskId = 1; const priorities = ['low', 'medium', 'high', 'critical']; const today = new Date();
+            INITIAL_PROPERTIES.forEach(property => {
+                for (let i = 0; i < 20; i++) {
+                    const groupKeys = Object.keys(TASK_HIERARCHY); const randomGroup = groupKeys[Math.floor(Math.random() * groupKeys.length)];
+                    const categoryKeys = Object.keys(TASK_HIERARCHY[randomGroup]); const randomCategory = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
+                    const taskNames = TASK_HIERARCHY[randomGroup][randomCategory]; const randomTaskName = taskNames[Math.floor(Math.random() * taskNames.length)];
+                    const dueDate = new Date(today); dueDate.setDate(today.getDate() + Math.floor(Math.random() * 90) - 30);
+                    const isCompleted = Math.random() > 0.7; let completedDate = null;
+                    const createdDate = new Date(dueDate); createdDate.setDate(createdDate.getDate() - (Math.floor(Math.random() * 30) + 1));
+                    if (isCompleted) { completedDate = new Date(dueDate); completedDate.setDate(completedDate.getDate() - Math.floor(Math.random() * 10)); }
+                    tasks.push({
+                        id: taskId++, propertyId: property.id, name: randomTaskName, description: `Perform ${randomTaskName} for ${property.name}. Check all components and report any issues.`,
+                        categoryGroup: randomGroup, category: randomCategory, priority: priorities[Math.floor(Math.random() * priorities.length)],
+                        dueDate: dueDate.toISOString().split('T')[0], estimatedHours: (Math.floor(Math.random() * 16) / 2 + 0.5),
+                        assignedTo: [USERS[Math.floor(Math.random() * USERS.length)].id],
+                        status: isCompleted ? 'completed' : (Math.random() > 0.9 ? 'in_progress' : 'upcoming'),
+                        createdDate: createdDate.toISOString().split('T')[0], completedDate: completedDate ? completedDate.toISOString().split('T')[0] : null,
+                    });
+                }
+            }); return tasks;
+        };
+        
+        const exportToCSV = (tasks, properties, users) => {
+            const headers = ['Task ID', 'Task Name', 'Property', 'Due Date', 'Status', 'Priority', 'Assigned To', 'Completed Date'];
+            const rows = tasks.map(task => [
+                task.id,
+                `"${task.name.replace(/"/g, '""')}"`,
+                `"${properties.find(p => p.id === task.propertyId)?.name.replace(/"/g, '""')}"`,
+                task.dueDate,
+                getTaskStatus(task).text,
+                task.priority,
+                `"${users.find(u => u.id === task.assignedTo[0])?.name.replace(/"/g, '""')}"`,
+                task.completedDate || 'N/A'
+            ].join(','));
+            const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "task_report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // ==================== MAIN COMPONENTS ====================
+        const Header = ({ user, isMobileMenuOpen, setIsMobileMenuOpen, theme, toggleTheme, tasks, onTaskSelect }) => {
+            const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+            const notifications = useMemo(() => tasks.filter(t => getTaskStatus(t).type === 'overdue' || (t.assignedTo[0] === user.id && !t.completedDate)).sort((a,b) => new Date(b.createdDate) - new Date(a.createdDate)).slice(0, 5), [tasks, user]);
+
+            return (
+            <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center"><button className="mobile-only p-2 mr-2 text-gray-600 dark:text-gray-300" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Icon name={isMobileMenuOpen ? "x" : "menu"} className="h-6 w-6" /></button><Icon name="building-2" className="h-8 w-8 text-blue-600 mr-3" /><div><h1 className="text-xl font-bold text-gray-900 dark:text-white">CRE Asset Manager Pro</h1><span className="text-xs text-gray-500 dark:text-gray-400 desktop-only">Advanced Property Management</span></div></div>
+                        <div className="flex items-center space-x-2">
+                            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">{theme === "dark" ? <Icon name="sun" className="h-5 w-5 text-yellow-400" /> : <Icon name="moon" className="h-5 w-5 text-indigo-600" />}</button>
+                            <div className="relative"><button onClick={() => setIsNotificationsOpen(p => !p)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"><Icon name="bell" className="h-5 w-5 text-gray-600 dark:text-gray-300" />{notifications.length > 0 && <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-800"></span>}</button>
+                                {isNotificationsOpen && (<div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border dark:border-gray-700 overflow-hidden animate-fade-in"><div className="p-3 font-semibold border-b dark:border-gray-700">Notifications</div><div className="divide-y dark:divide-gray-700">{notifications.map(n => <div key={n.id} onClick={() => {onTaskSelect(n); setIsNotificationsOpen(false)}} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"><p className="text-sm font-medium">{n.name}</p><p className="text-xs text-red-500">{getTaskStatus(n).type==='overdue' ? 'This task is overdue!' : `Assigned on ${n.createdDate}`}</p></div>)}</div></div>)}
+                            </div>
+                            <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center"><span className="text-sm font-medium text-blue-800">{user.avatar}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            );
+        };
+
+        const Navigation = ({ activeView, onViewChange, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+            const navItems = [{ id: 'dashboard', label: 'Dashboard', icon: 'home' }, { id: 'properties', label: 'Properties', icon: 'building' }, { id: 'tasks', label: 'Tasks', icon: 'check-square' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }, { id: 'reporting', label: 'Reporting', icon: 'bar-chart-2'}];
+            return (
+                <>
+                    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 desktop-only">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex space-x-8">{navItems.map(item => (<button key={item.id} onClick={() => onViewChange(item.id)} className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeView === item.id ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:border-gray-300'}`}><Icon name={item.icon} className="h-4 w-4" /><span>{item.label}</span></button>))}</div></div>
+                    </nav>
+                    <div className={`fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg z-50 mobile-menu ${isMobileMenuOpen ? 'open' : ''} md:hidden`}>
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Menu</h2><button onClick={() => setIsMobileMenuOpen(false)}><Icon name="x" className="h-5 w-5"/></button></div>
+                        <nav className="p-4">{navItems.map(item => (<button key={item.id} onClick={() => { onViewChange(item.id); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 w-full px-4 py-3 rounded-lg mb-2 transition-colors ${activeView === item.id ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icon name={item.icon} className="h-5 w-5" /><span>{item.label}</span></button>))} </nav>
+                    </div>
+                </>
+            );
+        };
+
+        const Dashboard = ({ properties, tasks, onPropertySelect, onTaskSelect, onViewChange, currentUser }) => {
+            const stats = useMemo(() => {
+                const overdue = tasks.filter(t => getTaskStatus(t).type === 'overdue').length; const dueSoon = tasks.filter(t => getTaskStatus(t).type === 'due').length;
+                const inProgress = tasks.filter(t => getTaskStatus(t).type === 'progress').length; const completed = tasks.filter(t => t.completedDate).length;
+                return { overdue, dueSoon, inProgress, completed };
+            }, [tasks]);
+            const recentActivity = useMemo(() => tasks.map(t => ({ ...t, date: new Date(t.completedDate || t.createdDate) })).sort((a, b) => b.date - a.date).slice(0, 5), [tasks]);
+            const StatCard = ({ title, value, icon, color, onClick }) => (<Card className={`p-6 ${color} text-white cursor-pointer`} onClick={onClick}><div className="flex items-center justify-between"><div><p className="text-sm font-medium opacity-90">{title}</p><p className="text-3xl font-bold mt-2">{value}</p></div><Icon name={icon} className="h-8 w-8 opacity-75" /></div></Card>);
+            return (
+                <div className="space-y-6">
+                    <section className="relative overflow-hidden rounded-xl shadow-lg bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 text-white p-8"><h2 className="text-3xl font-bold mb-2">Welcome back, {currentUser.name.split(' ')[0]}!</h2><p className="text-lg opacity-90">Here’s your portfolio snapshot for today.</p></section>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"><StatCard title="Overdue Tasks" value={stats.overdue} icon="alert-triangle" color="bg-gradient-to-r from-red-500 to-red-600" onClick={() => onViewChange('tasks', { status: 'overdue' })} /><StatCard title="Due Soon" value={stats.dueSoon} icon="clock" color="bg-gradient-to-r from-yellow-400 to-orange-500" onClick={() => onViewChange('tasks', { status: 'due' })} /><StatCard title="In Progress" value={stats.inProgress} icon="play-circle" color="bg-gradient-to-r from-blue-500 to-indigo-600" onClick={() => onViewChange('tasks', { status: 'progress' })} /><StatCard title="Completed Tasks" value={stats.completed} icon="check-circle" color="bg-gradient-to-r from-green-400 to-teal-500" onClick={() => onViewChange('tasks', { status: 'completed' })} /></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2"><Card className="p-6"><h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Properties Overview</h3><div className="space-y-3">{properties.map(property => (<div key={property.id} className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => onPropertySelect(property)}><div className="flex justify-between items-center"><div><h4 className="font-medium text-gray-900 dark:text-gray-100">{property.name}</h4><p className="text-sm text-gray-500 dark:text-gray-400">{property.tenant}</p></div><span className={`px-2 py-1 rounded-full text-xs font-medium ${property.status === 'occupied' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-gray-100 text-gray-800'}`}>{property.status}</span></div></div>))}</div></Card></div>
+                        <div><Card className="p-6"><h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center"><Icon name="activity" className="h-5 w-5 mr-2 text-gray-400" />Recent Activity</h3><div className="space-y-4">{recentActivity.map(task => { const property = properties.find(p => p.id === task.propertyId); const isCompleted = !!task.completedDate; return (<div key={task.id} className="flex items-start cursor-pointer group" onClick={() => onTaskSelect(task)}><div className={`mt-1 h-8 w-8 flex-shrink-0 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}><Icon name={isCompleted ? 'check-circle' : 'plus-circle'} className="h-5 w-5" /></div><div className="ml-3"><p className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{task.name}</p><p className="text-xs text-gray-500 dark:text-gray-400">{isCompleted ? 'Completed' : 'Created'} on {isCompleted ? task.completedDate : task.createdDate}</p></div></div>); })}</div></Card></div>
+                    </div>
+                </div>);
+        };
+        
+        const PropertiesView = ({ properties, tasks, onPropertySelect, currentUser, onAdd, onEdit, onDelete }) => {
+            const [searchTerm, setSearchTerm] = useState('');
+            const filteredProperties = useMemo(() => properties.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.tenant.toLowerCase().includes(searchTerm.toLowerCase())), [properties, searchTerm]);
+            
+            return (
+                <div className="space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Properties ({filteredProperties.length})</h1>
+                        <div className="flex items-center space-x-4 mt-4 md:mt-0">
+                            <div className="relative">
+                                <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                    className="w-full md:w-56 pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            {currentUser.role === 'Manager' && (
+                                <button onClick={onAdd} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                    <Icon name="plus" className="h-4 w-4 mr-2" /> Add Property
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredProperties.map(property => { 
+                            const overdueTasks = tasks.filter(t => t.propertyId === property.id && getTaskStatus(t).type === 'overdue').length; 
+                            return (
+                            <Card key={property.id} className="p-0 flex flex-col overflow-hidden">
+                                <div className="p-6 flex-grow cursor-pointer" onClick={() => onPropertySelect(property)}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{property.name}</h3>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${property.status === 'occupied' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-gray-100 text-gray-800'}`}>{property.status}</span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <p className="text-gray-600 dark:text-gray-300">{property.tenant}</p>
+                                        <p className="text-gray-500 dark:text-gray-400">{formatNumber(property.sqft)} sq ft</p>
+                                        <p className="font-medium text-gray-800 dark:text-gray-200">{formatCurrency(property.monthlyRent)}/mo</p>
+                                    </div>
+                                    {overdueTasks > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-dashed dark:border-gray-600">
+                                            <div className="p-2 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-center space-x-2">
+                                                <Icon name="alert-triangle" className="h-4 w-4 text-red-600 dark:text-red-400"/>
+                                                <p className="text-sm text-red-700 dark:text-red-300">{overdueTasks} overdue task{overdueTasks !== 1 ? 's' : ''}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {currentUser.role === 'Manager' && (
+                                    <div className="bg-gray-50 dark:bg-gray-800/50 p-2 flex justify-end space-x-2 border-t dark:border-gray-700">
+                                        <button onClick={() => onEdit(property)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"><Icon name="edit" className="h-4 w-4"/></button>
+                                        <button onClick={() => onDelete(property.id)} className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"><Icon name="trash-2" className="h-4 w-4"/></button>
+                                    </div>
+                                )}
+                            </Card>
+                        )})}
+                    </div>
+                </div>);
+        };
+
+        const TasksView = ({ tasks, properties, users, onTaskUpdate, onTaskSelect, onTaskAdd, onTaskEdit, initialFilters, clearInitialFilters, currentUser }) => {
+            const [filters, setFilters] = useState({ status: 'all', priority: 'all', user: 'all', search: '' });
+            useEffect(() => { if (initialFilters && Object.keys(initialFilters).length > 0) { setFilters(prev => ({ ...prev, ...initialFilters, status: initialFilters.status || 'all' })); clearInitialFilters(); } }, [initialFilters, clearInitialFilters]);
+            const handleFilterChange = (filterName, value) => setFilters(prev => ({ ...prev, [filterName]: value }));
+            const filteredTasks = useMemo(() => tasks.filter(task => { const status = getTaskStatus(task).type; if (filters.status !== 'all' && status !== filters.status) return false; if (filters.priority !== 'all' && task.priority !== filters.priority) return false; if (filters.user !== 'all' && !task.assignedTo.includes(parseInt(filters.user))) return false; if (filters.search && !task.name.toLowerCase().includes(filters.search.toLowerCase())) return false; return true; }), [tasks, filters]);
+            const SelectFilter = ({value, onChange, options, placeholder}) => (<select value={value} onChange={onChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500"><option value="all">{placeholder}</option>{options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>);
+            return (
+                <div className="space-y-6"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Task Management ({filteredTasks.length})</h1>{currentUser.role === 'Manager' && <button onClick={onTaskAdd} className="mt-4 sm:mt-0 flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Icon name="plus" className="h-4 w-4 mr-2" />Add Task</button>}</div>
+                    <Card className="p-4" hover={false}><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><input type="text" placeholder="Search tasks..." value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500" /><SelectFilter value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} placeholder="All Statuses" options={[{value: "overdue", label: "Overdue"}, {value: "due", label: "Due Soon"}, {value: "progress", label: "In Progress"}, {value: "upcoming", label: "Upcoming"}, {value: "completed", label: "Completed"}]}/><SelectFilter value={filters.priority} onChange={e => handleFilterChange('priority', e.target.value)} placeholder="All Priorities" options={[{value: "critical", label: "Critical"}, {value: "high", label: "High"}, {value: "medium", label: "Medium"}, {value: "low", label: "Low"}]}/><SelectFilter value={filters.user} onChange={e => handleFilterChange('user', e.target.value)} placeholder="All Users" options={users.map(u => ({value: u.id, label: u.name}))}/></div></Card>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700"><div className="divide-y dark:divide-gray-700">{filteredTasks.length > 0 ? filteredTasks.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate)).map(task => (<div key={task.id} onClick={() => onTaskSelect(task)} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"><div className="flex items-center justify-between"><div className="flex-1 min-w-0"><p className="font-medium text-gray-900 dark:text-gray-100 truncate">{task.name}</p><p className="text-sm text-gray-500 dark:text-gray-400">{properties.find(p => p.id === task.propertyId)?.name}</p><div className="flex items-center flex-wrap gap-2 mt-2"><StatusBadge status={getTaskStatus(task)} /><PriorityBadge priority={task.priority} /><span className="text-xs text-gray-500 dark:text-gray-400 flex items-center"><Icon name="calendar" className="w-3 h-3 mr-1"/>Due: {task.dueDate}</span></div></div><div className="flex items-center space-x-1 ml-2">{currentUser.role === 'Manager' && <button onClick={(e) => {e.stopPropagation(); onTaskEdit(task)}} className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"><Icon name="edit" className="h-4 w-4" /></button>}{getTaskStatus(task).type !== 'completed' && (<button onClick={(e) => {e.stopPropagation(); onTaskUpdate({...task, completedDate: new Date().toISOString().split('T')[0]})}} className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400"><Icon name="check" className="h-4 w-4" /></button>)}</div></div></div>)) : (<div className="text-center py-16 text-gray-500 dark:text-gray-400"><Icon name="search" className="h-12 w-12 mx-auto text-gray-400 mb-2"/><p className="font-medium">No tasks match your filters.</p><p className="text-sm">Try adjusting your search or filter criteria.</p></div>)}</div></div>
+                </div>);
+        };
+        
+        const TaskModal = ({ isOpen, onClose, task, properties, users, onSave }) => {
+            const [formData, setFormData] = useState({});
+            useEffect(() => { 
+                if (isOpen) { 
+                    const defaultState = { 
+                        propertyId: properties[0]?.id || '', name: '', description: '', 
+                        categoryGroup: Object.keys(TASK_HIERARCHY)[0], 
+                        category: Object.keys(TASK_HIERARCHY[Object.keys(TASK_HIERARCHY)[0]])[0],
+                        priority: 'medium', dueDate: '', estimatedHours: 1, 
+                        assignedTo: [users[0]?.id || ''], isCustomTask: false, customTaskName: '' 
+                    };
+                    defaultState.name = TASK_HIERARCHY[defaultState.categoryGroup][defaultState.category][0];
+                    
+                    const taskIsPredefined = task && TASK_HIERARCHY[task.categoryGroup]?.[task.category]?.includes(task.name);
+                    const initialState = task ? { ...defaultState, ...task, isCustomTask: !taskIsPredefined, customTaskName: taskIsPredefined ? '' : task.name } : defaultState;
+                    setFormData(initialState); 
+                } 
+            }, [task, isOpen, properties, users]);
+
+            const handleChange = (field, value) => { 
+                setFormData(prev => { 
+                    const updated = { ...prev, [field]: value };
+                    if (field === 'categoryGroup' && !prev.isCustomTask) { 
+                        const firstCategory = Object.keys(TASK_HIERARCHY[value])[0]; 
+                        updated.category = firstCategory;
+                        updated.name = TASK_HIERARCHY[value][firstCategory][0]; 
+                    } 
+                    if (field === 'category' && !prev.isCustomTask) { 
+                        updated.name = TASK_HIERARCHY[prev.categoryGroup][value][0]; 
+                    } 
+                    if (field === 'isCustomTask' && !value) { 
+                        updated.name = TASK_HIERARCHY[updated.categoryGroup][updated.category][0]; 
+                    } 
+                    return updated; 
+                }); 
+            };
+            const handleSubmit = (e) => { e.preventDefault(); const finalName = formData.isCustomTask ? formData.customTaskName : formData.name; onSave({ ...formData, name: finalName }); };
+            if (!isOpen || !formData.categoryGroup) return null;
+            
+            const FormLabel = ({children}) => <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{children}</label>; 
+            const FormInput = (props) => <input className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500" {...props} />; 
+            const FormSelect = ({children, ...props}) => <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500" {...props}>{children}</select>;
+            
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} size="lg">
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                        <div className="p-6 border-b dark:border-gray-700"><h3 className="text-xl font-semibold text-gray-900 dark:text-white">{task ? 'Edit Task' : 'Create New Task'}</h3></div>
+                        <div className="p-6 flex-grow overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div><FormLabel>Property</FormLabel><FormSelect value={formData.propertyId} onChange={e => handleChange('propertyId', parseInt(e.target.value))} required>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</FormSelect></div>
+                                <div />
+                                <div><FormLabel>Category Group</FormLabel><FormSelect value={formData.categoryGroup} onChange={e => handleChange('categoryGroup', e.target.value)} disabled={formData.isCustomTask}>{Object.keys(TASK_HIERARCHY).map(g => <option key={g} value={g}>{g}</option>)}</FormSelect></div>
+                                <div><FormLabel>Category</FormLabel><FormSelect value={formData.category} onChange={e => handleChange('category', e.target.value)} disabled={formData.isCustomTask}>{Object.keys(TASK_HIERARCHY[formData.categoryGroup]).map(c => <option key={c} value={c}>{c}</option>)}</FormSelect></div>
+                                
+                                <div className="md:col-span-2">
+                                    <div className="flex items-center mb-3">
+                                        <input type="checkbox" id="customTask" checked={formData.isCustomTask} onChange={e => handleChange('isCustomTask', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+                                        <label htmlFor="customTask" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Create Custom Task</label>
+                                    </div>
+                                    {formData.isCustomTask ? (
+                                        <div className="custom-task-input p-4 rounded-lg">
+                                            <FormLabel>Custom Task Name</FormLabel>
+                                            <FormInput type="text" value={formData.customTaskName} onChange={e => handleChange('customTaskName', e.target.value)} placeholder="Enter custom task name..." required/>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <FormLabel>Task</FormLabel>
+                                            <FormSelect value={formData.name} onChange={e => handleChange('name', e.target.value)}>
+                                                {TASK_HIERARCHY[formData.categoryGroup][formData.category].map(taskName => (<option key={taskName} value={taskName}>{taskName}</option>))}
+                                            </FormSelect>
+                                        </div>
+                                    )}
+                                </div>
+                                <div><FormLabel>Priority</FormLabel><FormSelect value={formData.priority} onChange={e => handleChange('priority', e.target.value)}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></FormSelect></div>
+                                <div><FormLabel>Due Date</FormLabel><FormInput type="date" value={formData.dueDate} onChange={e => handleChange('dueDate', e.target.value)} required/></div>
+                                <div><FormLabel>Estimated Hours</FormLabel><FormInput type="number" min="0.5" step="0.5" value={formData.estimatedHours} onChange={e => handleChange('estimatedHours', parseFloat(e.target.value))} /></div>
+                                <div><FormLabel>Assigned To</FormLabel><FormSelect value={formData.assignedTo[0]} onChange={e => handleChange('assignedTo', [parseInt(e.target.value)])}>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</FormSelect></div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 flex justify-end space-x-3 border-t dark:border-gray-700">
+                            <button type="button" onClick={onClose} className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{task ? 'Update Task' : 'Create Task'}</button>
+                        </div>
+                    </form>
+                </Modal>
+            );
+        };
+        
+        const CalendarView = ({ tasks, onTaskSelect }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const days = useMemo(() => { const year = currentDate.getFullYear(); const month = currentDate.getMonth(); const firstDay = new Date(year, month, 1); const lastDay = new Date(year, month + 1, 0); const daysInMonth = lastDay.getDate(); const startingDayOfWeek = firstDay.getDay(); const daysArray = []; for (let i = 0; i < startingDayOfWeek; i++) daysArray.push(null); for (let day = 1; day <= daysInMonth; day++) daysArray.push(new Date(year, month, day)); return daysArray; }, [currentDate]);
+            const tasksByDate = useMemo(() => { const map = {}; tasks.forEach(task => { const date = task.dueDate; if (!map[date]) map[date] = []; map[date].push(task); }); return map; }, [tasks]);
+            return (<Card className="p-6" hover={false}><div className="flex items-center justify-between mb-6"><div className="flex items-center space-x-4"><button onClick={() => setCurrentDate(d => new Date(d.setMonth(d.getMonth() - 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Icon name="chevron-left" /></button><h2 className="text-xl font-semibold text-gray-900 dark:text-white">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2><button onClick={() => setCurrentDate(d => new Date(d.setMonth(d.getMonth() + 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Icon name="chevron-right" /></button></div><button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Today</button></div><div className="grid grid-cols-7 border-l border-t border-gray-200 dark:border-gray-700">{dayNames.map(day => <div key={day} className="bg-gray-50 dark:bg-gray-800/50 p-3 text-sm font-medium text-center border-r border-b border-gray-200 dark:border-gray-700">{day}</div>)}{days.map((day, index) => { const dateStr = day?.toISOString().split('T')[0]; const dayTasks = tasksByDate[dateStr] || []; const isToday = dateStr === new Date().toISOString().split('T')[0]; return (<div key={index} className={`min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-700 relative ${day ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50'} ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>{day && <span className={`text-sm font-medium ${isToday ? 'text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>{day.getDate()}</span>}<div className="mt-1 space-y-1 overflow-y-auto max-h-[90px] custom-scrollbar">{dayTasks.map(task => (<div key={task.id} onClick={() => onTaskSelect(task)} className={`p-1.5 rounded-md text-xs cursor-pointer priority-${task.priority} text-white`}><p className="font-semibold truncate">{task.name}</p></div>))}</div></div>); })}</div></Card>);
+        };
+        
+        const ReportingView = ({ tasks, properties, users }) => {
+            const chartData = useMemo(() => {
+                const statusCounts = { overdue: 0, due: 0, progress: 0, upcoming: 0, completed: 0 };
+                const priorityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+                tasks.forEach(task => { 
+                    const statusType = getTaskStatus(task).type;
+                    if(statusCounts.hasOwnProperty(statusType)) {
+                        statusCounts[statusType]++;
+                    }
+                    if(priorityCounts.hasOwnProperty(task.priority)) {
+                        priorityCounts[task.priority]++;
+                    }
+                });
+                return { statusCounts, priorityCounts };
+            }, [tasks]);
+
+            useEffect(() => {
+                let statusChart, priorityChart;
+                const statusCanvas = document.getElementById('statusChart');
+                const priorityCanvas = document.getElementById('priorityChart');
+                
+                if (tasks.length > 0 && statusCanvas && priorityCanvas) {
+                    const statusCtx = statusCanvas.getContext('2d');
+                    statusChart = new Chart(statusCtx, {
+                        type: 'bar', data: { labels: ['Overdue', 'Due Soon', 'In Progress', 'Upcoming', 'Completed'], datasets: [{ label: 'Tasks by Status', data: Object.values(chartData.statusCounts), backgroundColor: ['#ef4444', '#f97316', '#3b82f6', '#6366f1', '#22c55e'] }] },
+                        options: { responsive: true, plugins: { legend: { display: false } } }
+                    });
+                    const priorityCtx = priorityCanvas.getContext('2d');
+                    priorityChart = new Chart(priorityCtx, {
+                        type: 'doughnut', data: { labels: ['Critical', 'High', 'Medium', 'Low'], datasets: [{ label: 'Tasks by Priority', data: Object.values(chartData.priorityCounts), backgroundColor: ['#f87171', '#fb923c', '#facc15', '#4ade80'] }] },
+                        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+                    });
+                }
+                return () => { 
+                    if(statusChart) statusChart.destroy();
+                    if(priorityChart) priorityChart.destroy();
+                };
+            }, [tasks, chartData]);
+
+            return (<div className="space-y-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reporting & Analytics</h1>
+            {tasks.length > 0 ? (
+                <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><Card><div className="p-6"><h3 className="font-semibold mb-4">Tasks by Status</h3><canvas id="statusChart"></canvas></div></Card><Card><div className="p-6"><h3 className="font-semibold mb-4">Tasks by Priority</h3><canvas id="priorityChart"></canvas></div></Card></div>
+                <Card><div className="p-6"><div className="flex justify-between items-center mb-4"><h3 className="font-semibold">Full Task Log</h3><button onClick={() => exportToCSV(tasks, properties, users)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center text-sm"><Icon name="download" className="h-4 w-4 mr-2"/>Export to CSV</button></div><div className="overflow-x-auto max-h-96 custom-scrollbar"><table className="w-full text-sm text-left"><thead><tr className="bg-gray-50 dark:bg-gray-700"><th className="p-3">Task</th><th className="p-3">Property</th><th className="p-3">Due Date</th><th className="p-3">Status</th></tr></thead><tbody className="divide-y dark:divide-gray-700">{tasks.map(t => <tr key={t.id}><td className="p-3">{t.name}</td><td className="p-3">{properties.find(p=>p.id===t.propertyId)?.name}</td><td className="p-3">{t.dueDate}</td><td className="p-3"><StatusBadge status={getTaskStatus(t)}/></td></tr>)}</tbody></table></div></div></Card>
+                </>
+            ) : (
+                <Card><div className="p-6 text-center text-gray-500"><Icon name="bar-chart-2" className="h-12 w-12 mx-auto mb-4"/>No task data available for reporting.</div></Card>
+            )}
+            </div>);
+        };
+        
+        const PropertyModal = ({ isOpen, onClose, onSave, property }) => {
+            const [formData, setFormData] = useState({});
+
+            useEffect(() => {
+                const defaultState = { name: '', address: '', tenant: '', type: 'Industrial', sqft: '', yearBuilt: '', leaseExpiry: '', insuranceExpiry: '', monthlyRent: '', status: 'occupied' };
+                setFormData(property || defaultState);
+            }, [property, isOpen]);
+
+            const handleChange = (field, value) => setFormData(p => ({...p, [field]: value}));
+            const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+            if (!isOpen) return null;
+
+            const FormLabel = ({children}) => <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{children}</label>;
+            const FormInput = (props) => <input className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500" {...props} />;
+            
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} size="lg">
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                        <div className="p-6 border-b dark:border-gray-700"><h3 className="text-xl font-semibold text-gray-900 dark:text-white">{property ? 'Edit Property' : 'Add New Property'}</h3></div>
+                        <div className="p-6 flex-grow overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2"><FormLabel>Property Name</FormLabel><FormInput type="text" value={formData.name || ''} onChange={e => handleChange('name', e.target.value)} required /></div>
+                                <div className="md:col-span-2"><FormLabel>Address</FormLabel><FormInput type="text" value={formData.address || ''} onChange={e => handleChange('address', e.target.value)} required /></div>
+                                <div><FormLabel>Tenant</FormLabel><FormInput type="text" value={formData.tenant || ''} onChange={e => handleChange('tenant', e.target.value)} required /></div>
+                                <div><FormLabel>Property Type</FormLabel><FormInput type="text" value={formData.type || ''} onChange={e => handleChange('type', e.target.value)} /></div>
+                                <div><FormLabel>Square Footage</FormLabel><FormInput type="number" value={formData.sqft || ''} onChange={e => handleChange('sqft', e.target.value)} /></div>
+                                <div><FormLabel>Year Built</FormLabel><FormInput type="number" value={formData.yearBuilt || ''} onChange={e => handleChange('yearBuilt', e.target.value)} /></div>
+                                <div><FormLabel>Lease Expiry</FormLabel><FormInput type="date" value={formData.leaseExpiry || ''} onChange={e => handleChange('leaseExpiry', e.target.value)} /></div>
+                                <div><FormLabel>Insurance Expiry</FormLabel><FormInput type="date" value={formData.insuranceExpiry || ''} onChange={e => handleChange('insuranceExpiry', e.target.value)} /></div>
+                                <div><FormLabel>Monthly Rent</FormLabel><FormInput type="number" value={formData.monthlyRent || ''} onChange={e => handleChange('monthlyRent', e.target.value)} /></div>
+                                <div><FormLabel>Status</FormLabel><select value={formData.status} onChange={e => handleChange('status', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg"><option value="occupied">Occupied</option><option value="vacant">Vacant</option></select></div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 flex justify-end space-x-3 border-t dark:border-gray-700">
+                            <button type="button" onClick={onClose} className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Property</button>
+                        </div>
+                    </form>
+                </Modal>
+            );
+        };
+
+        const PropertyDetailModal = ({ property, tasks, onClose, onTaskSelect }) => {
+            if (!property) return null;
+            const propertyTasks = tasks.filter(t => t.propertyId === property.id).sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const DetailItem = ({ icon, label, value }) => (<div className="flex items-start"><Icon name={icon} className="h-5 w-5 text-gray-400 mt-0.5 mr-3 flex-shrink-0" /><div><p className="text-xs text-gray-500 dark:text-gray-400">{label}</p><p className="font-medium text-gray-800 dark:text-gray-200">{value}</p></div></div>);
+            return (
+                <Modal isOpen={!!property} onClose={onClose} size="xl"><div className="p-6 border-b dark:border-gray-700 flex justify-between items-start"><div><h2 className="text-2xl font-bold text-gray-900 dark:text-white">{property.name}</h2><p className="text-gray-500 dark:text-gray-400 flex items-center mt-1"><Icon name="map-pin" className="h-4 w-4 mr-2" />{property.address}</p></div><button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600"><Icon name="x" /></button></div><div className="flex-grow overflow-y-auto custom-scrollbar"><div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-x-8"><div className="md:col-span-1 space-y-5"><h3 className="text-lg font-semibold border-b dark:border-gray-600 pb-2 mb-4">Property Details</h3><DetailItem icon="user" label="Tenant" value={property.tenant} /><DetailItem icon="building" label="Type" value={property.type} /><DetailItem icon="ruler" label="Square Footage" value={`${formatNumber(property.sqft)} sq ft`} /><DetailItem icon="calendar" label="Year Built" value={property.yearBuilt} /><DetailItem icon="file-text" label="Lease Expiry" value={property.leaseExpiry} /><DetailItem icon="shield" label="Insurance Expiry" value={property.insuranceExpiry} /><DetailItem icon="dollar-sign" label="Monthly Rent" value={formatCurrency(property.monthlyRent)} /></div><div className="md:col-span-2 mt-6 md:mt-0"><h3 className="text-lg font-semibold mb-4 border-b dark:border-gray-600 pb-2">Maintenance History ({propertyTasks.length})</h3><div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">{propertyTasks.length > 0 ? propertyTasks.map(task => (<div key={task.id} onClick={() => { onClose(); onTaskSelect(task); }} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"><div className="flex justify-between items-center"><div className="min-w-0 flex-1"><p className="font-medium truncate">{task.name}</p><p className="text-sm text-gray-500 dark:text-gray-400">Due: {task.dueDate}</p></div><div className="flex items-center space-x-2 flex-shrink-0 ml-2"><PriorityBadge priority={task.priority} /><StatusBadge status={getTaskStatus(task)} /></div></div></div>)) : (<div className="text-center py-12 text-gray-500"><Icon name="check-circle" className="h-10 w-10 mx-auto text-gray-400 mb-2"/><p>No tasks for this property.</p></div>)}</div></div></div></div></Modal>
+            );
+        };
+        
+        const TaskDetailModal = ({ task, properties, users, onClose, onEdit, currentUser }) => {
+            if (!task) return null;
+            const property = properties.find(p => p.id === task.propertyId); const assignedUser = users.find(u => u.id === task.assignedTo[0]); const status = getTaskStatus(task);
+            const DetailItem = ({ icon, label, children }) => (<div className="flex items-start py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"><Icon name={icon} className="h-5 w-5 text-gray-400 mt-1 mr-4 flex-shrink-0" /><div className="flex-grow min-w-0"><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><div className="font-medium break-words">{children}</div></div></div>);
+            return (<Modal isOpen={!!task} onClose={onClose} size="lg"><div className="p-6 border-b dark:border-gray-700"><div className="flex justify-between items-start"><div><h2 className="text-2xl font-bold text-gray-900 dark:text-white">{task.name}</h2><p className="text-gray-500 dark:text-gray-400 flex items-center mt-1"><Icon name="building" className="h-4 w-4 mr-2" />{property?.name}</p></div><button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600"><Icon name="x" /></button></div></div><div className="p-6 flex-grow overflow-y-auto custom-scrollbar"><div className="grid grid-cols-2 gap-4 mb-4"><div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"><p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Status</p><StatusBadge status={status} size="lg" /></div><div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"><p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Priority</p><PriorityBadge priority={task.priority} size="lg" /></div></div><DetailItem icon="tag" label="Category"><p>{task.categoryGroup} &gt; {task.category}</p></DetailItem><DetailItem icon="align-left" label="Description"><p>{task.description || "No description provided."}</p></DetailItem><DetailItem icon="calendar" label="Due Date"><p>{task.dueDate}</p></DetailItem><DetailItem icon="clock" label="Estimated Hours"><p>{task.estimatedHours}h</p></DetailItem><DetailItem icon="user-check" label="Assigned To"><div className="flex items-center space-x-2"><div className="h-6 w-6 bg-blue-100 rounded-full flex items-center justify-center"><span className="text-xs font-medium text-blue-800">{assignedUser?.avatar}</span></div><span>{assignedUser?.name}</span></div></DetailItem>{task.completedDate && (<DetailItem icon="check-circle" label="Completed On"><p>{task.completedDate}</p></DetailItem>)}</div><div className="bg-gray-50 dark:bg-gray-800/50 p-4 flex justify-end space-x-2 border-t dark:border-gray-700"><button onClick={onClose} className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Close</button>{currentUser.role === 'Manager' && <button onClick={() => onEdit(task)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"><Icon name="edit" className="h-4 w-4 mr-2" />Edit Task</button>}</div></Modal>);
+        };
+
+        const App = () => {
+            const [tasks, setTasks] = useState([]); 
+            const [properties, setProperties] = useState(INITIAL_PROPERTIES); 
+            const [activeView, setActiveView] = useState('dashboard'); 
+            const [initialTaskFilters, setInitialTaskFilters] = useState({});
+            const [selectedProperty, setSelectedProperty] = useState(null); 
+            const [selectedTask, setSelectedTask] = useState(null);
+            const [editingTask, setEditingTask] = useState(null); 
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+            const [theme, setTheme] = useState('light');
+            const [editingProperty, setEditingProperty] = useState(null);
+            const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+            const [propertyToDelete, setPropertyToDelete] = useState(null);
+            const currentUser = USERS[0]; // Simulate logged in user
+
+            useEffect(() => { setTasks(generateInitialTasks()); }, []);
+            useEffect(() => { if (window.lucide) { window.lucide.createIcons(); } });
+            useEffect(() => { 
+                if (theme === 'dark') { 
+                    document.documentElement.classList.add('dark'); 
+                } else { 
+                    document.documentElement.classList.remove('dark'); 
+                } 
+            }, [theme]);
+
+            const toggleTheme = () => setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+            const handleViewChange = (view, filters = {}) => { setActiveView(view); setInitialTaskFilters(filters); };
+            const handlePropertySelect = (property) => setSelectedProperty(property);
+            const handleTaskSelect = (task) => setSelectedTask(task);
+            const handleTaskModalOpen = (task = "new") => { setSelectedTask(null); setSelectedProperty(null); setEditingTask(task); };
+            const handleTaskModalClose = () => setEditingTask(null);
+            const handleTaskSave = (taskData) => {
+                setTasks(prevTasks => {
+                    const existing = prevTasks.find(t => t.id === taskData.id);
+                    if (existing) { return prevTasks.map(t => t.id === taskData.id ? { ...existing, ...taskData } : t); }
+                    const newId = Math.max(0, ...prevTasks.map(t => t.id)) + 1;
+                    const newDate = new Date().toISOString().split('T')[0];
+                    return [...prevTasks, { ...taskData, id: newId, createdDate: newDate, completedDate: null }];
+                });
+                handleTaskModalClose();
+            };
+            const handleTaskUpdate = (updatedTask) => { setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? updatedTask : t)); };
+
+            const handlePropertySave = (propertyData) => {
+                setProperties(prev => {
+                    if (propertyData.id) {
+                        return prev.map(p => p.id === propertyData.id ? propertyData : p);
+                    }
+                    const newId = Math.max(0, ...prev.map(p => p.id)) + 1;
+                    return [...prev, { ...propertyData, id: newId }];
+                });
+                setEditingProperty(null);
+            };
+
+            const handleDeleteProperty = (propertyId) => {
+                setPropertyToDelete(propertyId);
+                setIsConfirmModalOpen(true);
+            };
+
+            const confirmDeleteProperty = () => {
+                setProperties(prev => prev.filter(p => p.id !== propertyToDelete));
+                setTasks(prev => prev.filter(t => t.propertyId !== propertyToDelete));
+                setIsConfirmModalOpen(false);
+                setPropertyToDelete(null);
+            };
+
+            const renderView = () => {
+                switch (activeView) {
+                    case 'dashboard': return <Dashboard properties={properties} tasks={tasks} onPropertySelect={handlePropertySelect} onTaskSelect={handleTaskSelect} onViewChange={handleViewChange} currentUser={currentUser} />;
+                    case 'properties': return <PropertiesView properties={properties} tasks={tasks} onPropertySelect={handlePropertySelect} currentUser={currentUser} onAdd={() => setEditingProperty('new')} onEdit={setEditingProperty} onDelete={handleDeleteProperty} />;
+                    case 'tasks': return <TasksView tasks={tasks} properties={properties} users={USERS} onTaskUpdate={handleTaskUpdate} onTaskSelect={handleTaskSelect} onTaskAdd={() => handleTaskModalOpen("new")} onTaskEdit={handleTaskModalOpen} initialFilters={initialTaskFilters} clearInitialFilters={() => setInitialTaskFilters({})} currentUser={currentUser} />;
+                    case 'calendar': return <CalendarView tasks={tasks} onTaskSelect={handleTaskSelect} />;
+                    case 'reporting': return <ReportingView tasks={tasks} properties={properties} users={USERS} />;
+                    default: return <Dashboard currentUser={currentUser}/>;
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <Header user={currentUser} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} theme={theme} toggleTheme={toggleTheme} tasks={tasks} onTaskSelect={handleTaskSelect}/>
+                    <Navigation activeView={activeView} onViewChange={handleViewChange} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+                    <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">{renderView()}</main>
+                    <PropertyDetailModal property={selectedProperty} tasks={tasks} onClose={() => setSelectedProperty(null)} onTaskSelect={handleTaskSelect} />
+                    <TaskDetailModal task={selectedTask} properties={properties} users={USERS} onClose={() => setSelectedTask(null)} onEdit={handleTaskModalOpen} currentUser={currentUser}/>
+                    {currentUser.role === 'Manager' && <TaskModal isOpen={editingTask !== null} onClose={handleTaskModalClose} task={editingTask === "new" ? null : editingTask} properties={properties} users={USERS} onSave={handleTaskSave} />}
+                    {currentUser.role === 'Manager' && <PropertyModal isOpen={editingProperty !== null} onClose={() => setEditingProperty(null)} property={editingProperty === 'new' ? null : editingProperty} onSave={handlePropertySave} />}
+                    <ConfirmationModal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} onConfirm={confirmDeleteProperty} title="Delete Property" message="Are you sure you want to delete this property and all its associated tasks? This action cannot be undone." />
+                </div>
+            );
+        };
+        
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+
